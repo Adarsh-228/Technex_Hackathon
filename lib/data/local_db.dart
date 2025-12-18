@@ -182,6 +182,15 @@ class LocalDb {
       'created_at': DateTime.now().toIso8601String(),
     });
   }
+
+  Future<void> deleteOrder(int orderId) async {
+    final db = await database;
+    await db.delete(
+      'orders',
+      where: 'id = ?',
+      whereArgs: [orderId],
+    );
+  }
 }
 
 

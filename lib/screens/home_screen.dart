@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:technex/screens/customer_profile_screen.dart';
 import 'package:technex/screens/chatbot_screen.dart';
@@ -47,6 +48,48 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _orders = orders;
     });
+  }
+
+  Future<void> _deleteOrder(BuildContext context, int orderId, String orderTitle) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Order'),
+        content: Text('Are you sure you want to delete "$orderTitle"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final db = LocalDb.instance;
+      await db.deleteOrder(orderId);
+      if (!mounted) return;
+      
+      // Refresh orders list
+      await _loadOrders();
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order "$orderTitle" deleted'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   static _HomeScreenState? of(BuildContext context) {
@@ -171,6 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final order = _orders[index];
+                            final orderId = (order['id'] as int?) ?? 0;
                             final title =
                                 (order['title'] ?? '') as String;
                             final status =
@@ -197,44 +241,72 @@ class _HomeScreenState extends State<HomeScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        title,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontSize: 16,
-                                              fontWeight:
-                                                  FontWeight.w600,
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  title,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Status: $status',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        fontSize: 13,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .primary
+                                                            .withOpacity(0.9),
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  createdAt,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        fontSize: 12,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurface
+                                                            .withOpacity(0.7),
+                                                      ),
+                                                ),
+                                              ],
                                             ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Status: $status',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontSize: 13,
+                                          ),
+                                          IconButton(
+                                            onPressed: () => _deleteOrder(
+                                                context, orderId, title),
+                                            icon: Icon(
+                                              Icons.delete_outline,
                                               color: Theme.of(context)
                                                   .colorScheme
-                                                  .primary
-                                                  .withOpacity(0.9),
+                                                  .error,
+                                              size: 20,
                                             ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        createdAt,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontSize: 12,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface
-                                                  .withOpacity(0.7),
-                                            ),
+                                            tooltip: 'Delete order',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
                                       ),
                                       if (description.isNotEmpty) ...[
                                         const SizedBox(height: 6),
@@ -317,43 +389,153 @@ class _ServiceRowState extends State<_ServiceRow> {
     });
   }
 
+  /// Generate random cost between 100-900, rounded to nearest hundred
+  int _generateRandomCost() {
+    final random = Random();
+    // Generate random number between 100-900
+    final baseCost = 100 + random.nextInt(801); // 100 to 900
+    // Round to nearest hundred
+    return ((baseCost / 100).round() * 100);
+  }
+
   void _bookService() {
     showDialog<void>(
       context: context,
       builder: (ctx) {
-        final TextEditingController problemController =
+        final TextEditingController requirementsController =
             TextEditingController();
-        return AlertDialog(
-          title: const Text('Book Service'),
-          content: TextField(
-            controller: problemController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'What are your requirements?',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final requirements = problemController.text.trim();
-                final db = LocalDb.instance;
-                await db.createOrder(
-                  title: widget.service.serviceName,
-                  description: requirements,
-                  status: 'Pending',
-                );
-                if (mounted) {
-                  await _HomeScreenState.of(context)?._loadOrders();
-                }
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Submit'),
-            ),
-          ],
+        bool isBooking = false;
+        int? serviceCost;
+        bool showCost = false;
+        
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Book Service'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Service: ${widget.service.serviceName}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (showCost && serviceCost != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Estimated Cost:',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            '₹$serviceCost',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  TextField(
+                    controller: requirementsController,
+                    maxLines: 3,
+                    enabled: !isBooking,
+                    decoration: const InputDecoration(
+                      hintText: 'What are your requirements?',
+                      labelText: 'Requirements',
+                    ),
+                  ),
+                  if (isBooking) ...[
+                    const SizedBox(height: 16),
+                    const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isBooking
+                      ? null
+                      : () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                if (!showCost)
+                  OutlinedButton.icon(
+                    onPressed: isBooking
+                        ? null
+                        : () {
+                            setDialogState(() {
+                              serviceCost = _generateRandomCost();
+                              showCost = true;
+                            });
+                          },
+                    icon: const Icon(Icons.currency_rupee, size: 18),
+                    label: const Text('View Cost'),
+                  ),
+                ElevatedButton(
+                  onPressed: isBooking
+                      ? null
+                      : () async {
+                          final requirements = requirementsController.text.trim();
+                          if (requirements.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter your requirements'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isBooking = true;
+                          });
+
+                          final db = LocalDb.instance;
+                          await db.createOrder(
+                            title: widget.service.serviceName,
+                            description: requirements,
+                            status: 'Pending',
+                          );
+                          
+                          if (!ctx.mounted) return;
+                          
+                          if (mounted) {
+                            await _HomeScreenState.of(context)?._loadOrders();
+                          }
+                          
+                          Navigator.of(ctx).pop();
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Service "${widget.service.serviceName}" booked successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                  child: const Text('Confirm Booking'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

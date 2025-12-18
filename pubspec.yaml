@@ -38,6 +38,8 @@ dependencies:
   # Geolocation package for requesting location permissions
   # and accessing the current device location.
   geolocator: ^13.0.1
+  # Reverse geocoding to convert coordinates to place names
+  geocoding: ^3.0.0
 
   # Local SQLite database for persisting profiles and orders.
   sqflite: ^2.3.3
@@ -45,6 +47,9 @@ dependencies:
 
   # Font library for modern sans-serif text styles.
   google_fonts: ^6.2.1
+
+  # HTTP client for API requests.
+  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:

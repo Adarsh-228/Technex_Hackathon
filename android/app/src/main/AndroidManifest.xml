@@ -1,11 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- For location access -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- For network access -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="technex"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

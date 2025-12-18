@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/customer_details_screen.dart';
 import 'screens/service_provider_profile_screen.dart';
@@ -22,6 +23,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'Technex Services',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme(
@@ -147,7 +149,6 @@ class LocationInitializer extends StatefulWidget {
 class _LocationInitializerState extends State<LocationInitializer> {
   Position? _currentPosition;
   String? _locationError;
-  bool _initialised = true; // Allow UI to show immediately.
 
   @override
   void initState() {
@@ -173,8 +174,41 @@ class _LocationInitializerState extends State<LocationInitializer> {
         _currentPosition = position;
       });
 
+      // Get place name from coordinates (reverse geocoding)
+      String? placeName;
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          // Format: Area, City or City, State
+          if (place.locality != null && place.locality!.isNotEmpty) {
+            placeName = place.locality;
+            if (place.subAdministrativeArea != null && 
+                place.subAdministrativeArea!.isNotEmpty &&
+                place.subAdministrativeArea != place.locality) {
+              placeName = '${place.subAdministrativeArea}, $placeName';
+            } else if (place.administrativeArea != null && 
+                       place.administrativeArea!.isNotEmpty &&
+                       place.administrativeArea != place.locality) {
+              placeName = '${place.administrativeArea}, $placeName';
+            }
+          } else if (place.subAdministrativeArea != null && 
+                     place.subAdministrativeArea!.isNotEmpty) {
+            placeName = place.subAdministrativeArea;
+          } else if (place.administrativeArea != null && 
+                     place.administrativeArea!.isNotEmpty) {
+            placeName = place.administrativeArea;
+          }
+        }
+      } catch (e) {
+        // If reverse geocoding fails, we'll just use coordinates
+      }
+
       // Store globally for later use (e.g. auto-fill in customer login).
-      LocationStore.instance.setPosition(position);
+      LocationStore.instance.setPosition(position, placeName: placeName);
     } catch (e) {
       setState(() {
         _locationError = 'Failed to get location: $e';

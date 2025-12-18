@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:technex/data/local_db.dart';
 import 'package:technex/services/location_store.dart';
 import 'package:technex/screens/customer_survey_screen.dart';
@@ -21,6 +23,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isFetchingLocation = false;
 
   @override
   void initState() {
@@ -41,8 +44,11 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
       // If there is no saved customer location yet, pre-fill
       // with the initially fetched device location (if available).
       final formatted = LocationStore.instance.formattedLocation;
-      if (formatted != null) {
+      if (formatted != null && formatted.isNotEmpty) {
         _locationController.text = formatted;
+      } else {
+        // Try to fetch location if not already available
+        await _fetchCurrentLocation();
       }
     }
 
@@ -50,6 +56,108 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    if (_isFetchingLocation) return;
+
+    setState(() {
+      _isFetchingLocation = true;
+    });
+
+    try {
+      // Check permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permission denied')),
+            );
+          }
+          setState(() {
+            _isFetchingLocation = false;
+          });
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission permanently denied')),
+          );
+        }
+        setState(() {
+          _isFetchingLocation = false;
+        });
+        return;
+      }
+
+      // Get current position
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // Get place name from coordinates
+      String? placeName;
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          if (place.locality != null && place.locality!.isNotEmpty) {
+            placeName = place.locality;
+            if (place.subAdministrativeArea != null && 
+                place.subAdministrativeArea!.isNotEmpty &&
+                place.subAdministrativeArea != place.locality) {
+              placeName = '${place.subAdministrativeArea}, $placeName';
+            } else if (place.administrativeArea != null && 
+                       place.administrativeArea!.isNotEmpty &&
+                       place.administrativeArea != place.locality) {
+              placeName = '${place.administrativeArea}, $placeName';
+            }
+          } else if (place.subAdministrativeArea != null && 
+                     place.subAdministrativeArea!.isNotEmpty) {
+            placeName = place.subAdministrativeArea;
+          } else if (place.administrativeArea != null && 
+                     place.administrativeArea!.isNotEmpty) {
+            placeName = place.administrativeArea;
+          }
+        }
+      } catch (e) {
+        // If reverse geocoding fails, we'll just use coordinates
+      }
+
+      // Update LocationStore
+      LocationStore.instance.setPosition(position, placeName: placeName);
+
+      // Update text field
+      if (mounted && placeName != null && placeName.isNotEmpty) {
+        setState(() {
+          _locationController.text = placeName!;
+        });
+      } else if (mounted) {
+        setState(() {
+          _locationController.text = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFetchingLocation = false;
+        });
+      }
     }
   }
 
@@ -203,11 +311,29 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            TextFormField(
-                              controller: _locationController,
-                              decoration: const InputDecoration(
-                                hintText: 'Area / City',
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _locationController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Area / City',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: _isFetchingLocation ? null : _fetchCurrentLocation,
+                                  icon: _isFetchingLocation
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.my_location),
+                                  tooltip: 'Get current location',
+                                ),
+                              ],
                             ),
                           ],
                         ),
