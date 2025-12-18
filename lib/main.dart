@@ -296,12 +296,15 @@ class RoleSelectionScreen extends StatelessWidget {
                       if (!context.mounted) return;
 
                       if (existing != null) {
-                        Navigator.of(context).push(
+                        // Returning customer: go directly to home, clear navigation stack
+                        Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute<void>(
                             builder: (_) => const HomeScreen(),
                           ),
+                          (route) => false,
                         );
                       } else {
+                        // New customer: go to login form, can go back to role selection
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => const CustomerDetailsScreen(),

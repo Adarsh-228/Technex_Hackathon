@@ -4,6 +4,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:technex/data/local_db.dart';
 import 'package:technex/services/location_store.dart';
 import 'package:technex/screens/customer_survey_screen.dart';
+import 'package:technex/main.dart' show RoleSelectionScreen;
 
 /// Customer login / profile screen with minimal card layout.
 class CustomerDetailsScreen extends StatefulWidget {
@@ -28,33 +29,33 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill location immediately from LocationStore (synchronous, no async needed)
+    final formatted = LocationStore.instance.formattedLocation;
+    if (formatted != null && formatted.isNotEmpty) {
+      _locationController.text = formatted;
+    }
+    // Show UI immediately, load profile data in background
+    _isLoading = false;
     _loadProfile();
   }
 
   Future<void> _loadProfile() async {
+    // Load profile data in background (non-blocking)
     final db = LocalDb.instance;
     final existing = await db.getCustomerProfile();
 
-    if (existing != null) {
-      _nameController.text = (existing['name'] ?? '') as String;
-      _emailController.text = (existing['email'] ?? '') as String;
-      _phoneController.text = (existing['phone'] ?? '') as String;
-      _locationController.text = (existing['location'] ?? '') as String;
-    } else {
-      // If there is no saved customer location yet, pre-fill
-      // with the initially fetched device location (if available).
-      final formatted = LocationStore.instance.formattedLocation;
-      if (formatted != null && formatted.isNotEmpty) {
-        _locationController.text = formatted;
-      } else {
-        // Try to fetch location if not already available
-        await _fetchCurrentLocation();
-      }
-    }
+    if (!mounted) return;
 
-    if (mounted) {
+    if (existing != null) {
+      // Update fields with saved profile data
       setState(() {
-        _isLoading = false;
+        _nameController.text = (existing['name'] ?? '') as String;
+        _emailController.text = (existing['email'] ?? '') as String;
+        _phoneController.text = (existing['phone'] ?? '') as String;
+        // Only update location if it's not already filled from LocationStore
+        if (_locationController.text.isEmpty) {
+          _locationController.text = (existing['location'] ?? '') as String;
+        }
       });
     }
   }
@@ -208,6 +209,20 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
       appBar: AppBar(
         title: const Text('Customer Login'),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Navigate back to initial login page (RoleSelectionScreen)
+            // Check if location is available from LocationStore
+            final hasLocation = LocationStore.instance.position != null;
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute<void>(
+                builder: (_) => RoleSelectionScreen(hasLocation: hasLocation),
+              ),
+              (route) => false,
+            );
+          },
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

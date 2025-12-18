@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:technex/data/local_db.dart';
 import 'package:technex/screens/customer_details_screen.dart';
-import 'package:technex/services/location_store.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
@@ -28,11 +27,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
     if (existing == null) {
       // No profile yet; send user to customer details form.
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const CustomerDetailsScreen(),
-        ),
-      );
+      // Use push instead of pushReplacement to allow back navigation
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const CustomerDetailsScreen(),
+          ),
+        );
+      }
       return;
     }
 

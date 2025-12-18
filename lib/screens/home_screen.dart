@@ -433,7 +433,7 @@ class _ServiceRowState extends State<_ServiceRow> {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
-              title: const Text('Book Service'),
+              title: Text('Book ${widget.service.serviceName}'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,6 +442,13 @@ class _ServiceRowState extends State<_ServiceRow> {
                     'Service: ${widget.service.serviceName}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Provider: ${widget.service.providerName}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 16),
