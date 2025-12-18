@@ -1,0 +1,37 @@
+provider_name,service_name,service_category,primary_skill,location_area,service_radius_km,experience_years,availability_status,emergency_support
+Rajesh Verma,Electrician,Home,Industrial Wiring,Dharampeth,5,12,Online,Yes
+Sunil Gawande,Plumber,Home,Pipe Leak Repair,Manish Nagar,3,8,Online,Yes
+Pooja Deshmukh,AC Repair Technician,Home,Split AC Gas Charging,Sadar,10,6,Offline,Yes
+Amit Singh,Carpenter,Home,Modular Kitchen Installation,Trimurti Nagar,5,15,Online,No
+Geeta Patil,RO/Water Purifier Technician,Home,Filter Replacement,Mankapur,3,4,Online,Yes
+Vijay Kulkarni,Electrician,Home,Home Automation Setup,Civil Lines,10,18,Offline,Yes
+Nisha Sharma,Plumber,Home,Bathroom Fitting,Wardhaman Nagar,5,7,Online,Yes
+Sanjay Raut,AC Repair Technician,Home,Window AC Servicing,Nandanvan,3,10,Online,Yes
+Ravi Jadhav,Carpenter,Home,Furniture Repair,Hingna,10,9,Offline,No
+Kiran Dubey,RO/Water Purifier Technician,Home,AMC Plans,Bajaj Nagar,5,2,Online,Yes
+Mohan Lal,Electrician,Home,Short Circuit Fix,Ajni,3,14,Online,Yes
+Prakash Tiwari,Plumber,Home,Drainage Cleaning,Gandhibagh,5,11,Offline,Yes
+Shalini Rao,Home Nurse,Health & Personal Care,Post-Operative Care,Dharampeth,5,10,Online,Yes
+Dr. Rohan Gupta,Physiotherapist,Health & Personal Care,Orthopedic Rehabilitation,Manish Nagar,10,7,Online,Yes
+Meena Iyer,Elder Care Assistant,Health & Personal Care,Dementia Support,Sadar,3,5,Offline,Yes
+Akash Meshram,Lab Sample Collection Technician,Health & Personal Care,Phlebotomy,Trimurti Nagar,5,3,Online,Yes
+Deepa Nair,Home Nurse,Health & Personal Care,Diabetic Care,Mankapur,10,16,Online,Yes
+Vikram Singh,Physiotherapist,Health & Personal Care,Sports Injury Therapy,Civil Lines,5,13,Offline,Yes
+Anjali Kadam,Elder Care Assistant,Health & Personal Care,Mobility Assistance,Wardhaman Nagar,3,6,Online,Yes
+Ganesh Wagh,Lab Sample Collection Technician,Health & Personal Care,ECG Services,Nandanvan,10,4,Online,Yes
+Ritu Verma,Home Nurse,Health & Personal Care,Palliative Care,Hingna,5,11,Offline,Yes
+Jatin Shah,Physiotherapist,Health & Personal Care,Neuro Rehabilitation,Bajaj Nagar,3,19,Online,Yes
+Priya Chavan,Elder Care Assistant,Health & Personal Care,Meal Preparation,Ajni,10,8,Online,Yes
+Harish Dubey,Lab Sample Collection Technician,Health & Personal Care,Home Testing Kits,Gandhibagh,5,1,Offline,Yes
+Neha Khandelwal,Event Decorator,Event & Occasion,Wedding Themes,Dharampeth,10,9,Offline,No
+Alok Sahu,Photographer,Event & Occasion,Candid Photography,Manish Nagar,5,14,Online,No
+Shweta Bose,Makeup Artist,Event & Occasion,Bridal Makeup,Sadar,3,6,Online,No
+Farah Khan,Mehndi Artist,Event & Occasion,Traditional Designs,Trimurti Nagar,10,11,Offline,No
+Gaurav Deshpande,Sound & Light Technician,Event & Occasion,DJ Setup,Mankapur,5,17,Online,No
+Rupali Zade,Event Decorator,Event & Occasion,Birthday Parties,Civil Lines,3,3,Online,No
+Kunal Patil,Photographer,Event & Occasion,Pre-Wedding Shoots,Wardhaman Nagar,10,8,Offline,No
+Sonia Raut,Makeup Artist,Event & Occasion,Party Makeup,Nandanvan,5,5,Online,No
+Hema Soni,Mehndi Artist,Event & Occasion,Arabic Designs,Hingna,3,15,Online,No
+Ashish Borkar,Sound & Light Technician,Event & Occasion,Stage Lighting,Bajaj Nagar,10,12,Offline,No
+Manoj Gupta,Event Decorator,Event & Occasion,Corporate Events,Ajni,5,7,Online,No
+Tanya Roy,Photographer,Event & Occasion,Product Photography,Gandhibagh,3,2,Offline,No

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'screens/customer_details_screen.dart';
+import 'screens/service_provider_profile_screen.dart';
+import 'screens/home_screen.dart';
+import 'data/local_db.dart';
+import 'services/location_store.dart';
 
 void main() {
   runApp(const MyApp());
@@ -43,15 +49,17 @@ class MyApp extends StatelessWidget {
             color: Color(0xFFF5F3EE),
           ),
         ),
-        textTheme: const TextTheme(
-          headlineMedium: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFFF5F3EE),
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 14,
-            color: Color(0xFFE0DDD7),
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(
+          const TextTheme(
+            headlineMedium: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFF5F3EE),
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 14,
+              color: Color(0xFFE0DDD7),
+            ),
           ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -139,7 +147,7 @@ class LocationInitializer extends StatefulWidget {
 class _LocationInitializerState extends State<LocationInitializer> {
   Position? _currentPosition;
   String? _locationError;
-  bool _initialised = false;
+  bool _initialised = true; // Allow UI to show immediately.
 
   @override
   void initState() {
@@ -153,7 +161,6 @@ class _LocationInitializerState extends State<LocationInitializer> {
       if (!hasPermission) {
         setState(() {
           _locationError = 'Location permission is required to use the app.';
-          _initialised = true;
         });
         return;
       }
@@ -164,12 +171,13 @@ class _LocationInitializerState extends State<LocationInitializer> {
 
       setState(() {
         _currentPosition = position;
-        _initialised = true;
       });
+
+      // Store globally for later use (e.g. auto-fill in customer login).
+      LocationStore.instance.setPosition(position);
     } catch (e) {
       setState(() {
         _locationError = 'Failed to get location: $e';
-        _initialised = true;
       });
     }
   }
@@ -198,16 +206,6 @@ class _LocationInitializerState extends State<LocationInitializer> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialised) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    // We keep the fetched location in memory. For now we only show
-    // a lightweight hint that location is available or not.
     return RoleSelectionScreen(
       hasLocation: _currentPosition != null && _locationError == null,
     );
@@ -229,119 +227,81 @@ class RoleSelectionScreen extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Local Sure',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.primary, // #9A8873
-                    fontFamily: 'sans-serif',
-                  ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Continue as',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+            Expanded(
+              child: Center(
+                child: Text(
+                  'Local Sure',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
               ),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () async {
+                      final db = LocalDb.instance;
+                      final existing = await db.getCustomerProfile();
+
+                      if (!context.mounted) return;
+
+                      if (existing != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const HomeScreen(),
+                          ),
+                        );
+                      } else {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CustomerDetailsScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Customer'),
                   ),
                 ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const CustomerDetailsScreen(),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                  );
-                },
-                child: const Text('Customer'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ServiceProviderProfileScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Service Provider'),
                   ),
                 ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ServiceProviderProfileScreen(),
-                    ),
-                  );
-                },
-                child: const Text('Service Provider'),
-              ),
+              ],
             ),
-            const SizedBox(height: 32),
-            if (hasLocation)
-              const Text(
-                'Location permission granted.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12),
-              )
-            else
-              const Text(
-                'Location is required for nearby services.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12),
-              ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Placeholder screen for customer details.
-class CustomerDetailsScreen extends StatelessWidget {
-  const CustomerDetailsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Customer Details'),
-        centerTitle: true,
-      ),
-      body: const Center(
-        child: Text('Customer details screen (to be implemented).'),
-      ),
-    );
-  }
-}
-
-/// Placeholder screen for service provider profile creation.
-class ServiceProviderProfileScreen extends StatelessWidget {
-  const ServiceProviderProfileScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Service Provider Profile'),
-        centerTitle: true,
-      ),
-      body: const Center(
-        child: Text('Service provider profile screen (to be implemented).'),
       ),
     );
   }

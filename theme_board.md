@@ -45,6 +45,10 @@
 
 ### 3. Typography
 
+- **Global Font Family**
+  - **Plus Jakarta Sans** (via Google Fonts, `google_fonts` package).
+  - Applied app-wide through `GoogleFonts.plusJakartaSansTextTheme` so all text styles (headings, body, buttons) inherit this modern sans serif.
+
 - **AppBar Title / Screen Title**
   - Size: 20
   - Weight: 600 (semi-bold)

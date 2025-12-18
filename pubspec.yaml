@@ -39,6 +39,13 @@ dependencies:
   # and accessing the current device location.
   geolocator: ^13.0.1
 
+  # Local SQLite database for persisting profiles and orders.
+  sqflite: ^2.3.3
+  path: ^1.9.0
+
+  # Font library for modern sans-serif text styles.
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -61,10 +68,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/data/nagpur_service_providers.csv
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
