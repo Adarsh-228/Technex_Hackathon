@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:technex/screens/customer_profile_screen.dart';
 import 'package:technex/screens/chatbot_screen.dart';
 import 'package:technex/data/service_repository.dart';
+import 'package:technex/data/local_db.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ServiceProvider> _filteredServices = const [];
   int _visibleCount = 8;
   bool _loading = true;
+  List<Map<String, Object?>> _orders = const [];
   int _selectedIndex = 0; // 0: Services, 1: Orders, 2: Chatbot
 
   @override
@@ -36,6 +38,19 @@ class _HomeScreenState extends State<HomeScreen> {
       _visibleCount = _pageSize.clamp(0, services.length);
       _loading = false;
     });
+  }
+
+  Future<void> _loadOrders() async {
+    final db = LocalDb.instance;
+    final orders = await db.getCurrentOrders();
+    if (!mounted) return;
+    setState(() {
+      _orders = orders;
+    });
+  }
+
+  static _HomeScreenState? of(BuildContext context) {
+    return context.findAncestorStateOfType<_HomeScreenState>();
   }
 
   void _applyFilter() {
@@ -141,14 +156,111 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
             )
           : _selectedIndex == 1
-              ? const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                    child: Text(
-                      'Your orders will appear here.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: _orders.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No orders yet.\nBook a service to see it here.',
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: _orders.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final order = _orders[index];
+                            final title =
+                                (order['title'] ?? '') as String;
+                            final status =
+                                (order['status'] ?? '') as String;
+                            final createdAt =
+                                (order['created_at'] ?? '') as String;
+                            final description =
+                                (order['description'] ?? '') as String;
+
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  borderRadius:
+                                      BorderRadius.circular(16),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surface
+                                      .withOpacity(0.9),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 16,
+                                              fontWeight:
+                                                  FontWeight.w600,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Status: $status',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 13,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withOpacity(0.9),
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        createdAt,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontSize: 12,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withOpacity(0.7),
+                                            ),
+                                      ),
+                                      if (description.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          description,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontSize: 13,
+                                                color:
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurface
+                                                        .withOpacity(
+                                                            0.85),
+                                              ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 )
               : const ChatbotScreen(),
       bottomNavigationBar: NavigationBar(
@@ -157,6 +269,9 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _selectedIndex = index;
           });
+          if (index == 1) {
+            _loadOrders();
+          }
         },
         destinations: const [
           NavigationDestination(
@@ -223,9 +338,17 @@ class _ServiceRowState extends State<_ServiceRow> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                // TODO: Use problemController.text and service details
-                // to create a booking when backend is ready.
+              onPressed: () async {
+                final requirements = problemController.text.trim();
+                final db = LocalDb.instance;
+                await db.createOrder(
+                  title: widget.service.serviceName,
+                  description: requirements,
+                  status: 'Pending',
+                );
+                if (mounted) {
+                  await _HomeScreenState.of(context)?._loadOrders();
+                }
                 Navigator.of(ctx).pop();
               },
               child: const Text('Submit'),

@@ -9,10 +9,10 @@ class ChatbotScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Assistant'),
-        centerTitle: true,
-      ),
+//      appBar: AppBar(
+//        title: const Text('Assistant'),
+//        centerTitle: true,
+//      ),
       body: const Center(
         child: Text(
           'Chatbot coming soon.\nThis will help you find services using your CSV data.',

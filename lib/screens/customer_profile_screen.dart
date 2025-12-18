@@ -78,14 +78,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           ),
                           const SizedBox(height: 16),
                           _ProfileRow(
-                            label: 'Location',
+                            label: 'Location (Area / City)',
                             value: (_profile?['location'] ?? '') as String,
-                          ),
-                          const SizedBox(height: 16),
-                          _ProfileRow(
-                            label: 'Device Location (GPS)',
-                            value: LocationStore.instance.formattedLocation ??
-                                '',
                           ),
                         ],
                       ),

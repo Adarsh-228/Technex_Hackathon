@@ -168,6 +168,20 @@ class LocalDb {
     );
     return result;
   }
+
+  Future<void> createOrder({
+    required String title,
+    required String description,
+    required String status,
+  }) async {
+    final db = await database;
+    await db.insert('orders', {
+      'title': title,
+      'description': description,
+      'status': status,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
 }
 
 
