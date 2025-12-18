@@ -291,6 +291,25 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                 'Status',
                                 'Pending',
                               ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Payment feature coming soon!'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.payment, size: 20),
+                                  label: const Text('Make Payment'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -325,6 +344,25 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                               _buildDetailRow(
                                 'Status',
                                 'Pending',
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Payment feature coming soon!'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.payment, size: 20),
+                                  label: const Text('Make Payment'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+                                ),
                               ),
                             ],
                           ),

@@ -115,7 +115,7 @@ class _ServiceProviderProfileScreenState
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Profile'),
-              Tab(text: 'Orders'),
+              Tab(text: 'Admin Panel'),
             ],
           ),
         ),
