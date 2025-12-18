@@ -51,6 +51,10 @@ dependencies:
   # HTTP client for API requests.
   http: ^1.2.2
 
+  # Map package for displaying maps and routes
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:technex/screens/customer_profile_screen.dart';
 import 'package:technex/screens/chatbot_screen.dart';
+import 'package:technex/screens/order_tracking_screen.dart';
 import 'package:technex/data/service_repository.dart';
 import 'package:technex/data/local_db.dart';
 
@@ -326,6 +327,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                         ),
                                       ],
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute<void>(
+                                                builder: (_) => OrderTrackingScreen(
+                                                  orderTitle: title,
+                                                  orderDescription: description,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.location_on, size: 18),
+                                          label: const Text('Track your Order'),
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
