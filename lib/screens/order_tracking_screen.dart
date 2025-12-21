@@ -48,7 +48,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   ServiceProvider? _serviceProvider;
   
   // Google Maps API Key
-  static const String _googleMapsApiKey = 'AIzaSyCOCEy6SmwapTeZ1UPibfcwtlOmqqiA74g';
+  static const String _googleMapsApiKey = '********************';
 
   @override
   void initState() {
