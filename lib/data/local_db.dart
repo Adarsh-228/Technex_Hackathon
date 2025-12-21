@@ -18,7 +18,7 @@ class LocalDb {
 
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE service_provider_profile (
@@ -51,6 +51,25 @@ class LocalDb {
             created_at TEXT NOT NULL
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feedback_text TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS feedback (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              feedback_text TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            )
+          ''');
+        }
       },
     );
 
@@ -190,6 +209,27 @@ class LocalDb {
       where: 'id = ?',
       whereArgs: [orderId],
     );
+  }
+
+  // --- Feedback ---
+
+  Future<List<Map<String, Object?>>> getFeedback() async {
+    final db = await database;
+    final result = await db.query(
+      'feedback',
+      orderBy: 'created_at DESC',
+    );
+    return result;
+  }
+
+  Future<void> createFeedback({
+    required String feedbackText,
+  }) async {
+    final db = await database;
+    await db.insert('feedback', {
+      'feedback_text': feedbackText,
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 }
 

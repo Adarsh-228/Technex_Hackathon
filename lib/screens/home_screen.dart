@@ -553,11 +553,25 @@ class _ServiceRowState extends State<_ServiceRow> {
                           
                           Navigator.of(ctx).pop();
                           
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Service "${widget.service.serviceName}" booked successfully!'),
-                              backgroundColor: Colors.green,
-                            ),
+                          // Show simple confirmation message dialog (no buttons)
+                          showDialog<void>(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (dialogCtx) {
+                              // Auto-close after 2 seconds
+                              Future.delayed(const Duration(seconds: 2), () {
+                                if (dialogCtx.mounted) {
+                                  Navigator.of(dialogCtx).pop();
+                                }
+                              });
+                              
+                              return AlertDialog(
+                                content: Text(
+                                  'Service "${widget.service.serviceName}" booked successfully!',
+                                  textAlign: TextAlign.center,
+                                ),
+                              );
+                            },
                           );
                         },
                   child: const Text('Confirm Booking'),

@@ -80,11 +80,24 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         final responseData = jsonDecode(response.body);
         final parseResult = _parseResponse(responseData);
         
+        // Detect stage from API response
+        final stage = _detectStage(responseData, parseResult.text);
+        
+        // Handle different stages
+        if (stage == 'confirmation') {
+          // Confirmation stage: automatically create booking
+          await _handleConfirmation(parseResult, responseData);
+        } else if (stage == 'feedback') {
+          // Feedback stage: save to database
+          await _handleFeedback(parseResult.text);
+        }
+        
         setState(() {
           _messages.add(ChatMessage(
             text: parseResult.text,
             isUser: false,
-            serviceName: parseResult.serviceName,
+            serviceName: stage == 'query' ? parseResult.serviceName : null, // Only show button in query stage
+            stage: stage,
           ));
           _isLoading = false;
         });
@@ -260,6 +273,78 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
     
     return _ParseResult(text: text, serviceName: serviceName);
+  }
+
+  /// Detect stage from API response (query, confirmation, feedback)
+  String _detectStage(dynamic responseData, String text) {
+    final textLower = text.toLowerCase();
+    
+    // Check response data for stage field
+    if (responseData is Map) {
+      final stage = responseData['stage']?.toString().toLowerCase();
+      if (stage != null && (stage == 'query' || stage == 'confirmation' || stage == 'feedback')) {
+        return stage;
+      }
+    }
+    
+    // Detect from text content
+    if (textLower.contains('confirm') || 
+        textLower.contains('booked') || 
+        textLower.contains('booking confirmed') ||
+        textLower.contains('order placed') ||
+        textLower.contains('successfully booked')) {
+      return 'confirmation';
+    }
+    
+    if (textLower.contains('feedback') || 
+        textLower.contains('thank you') ||
+        textLower.contains('appreciate') ||
+        textLower.contains('rating') ||
+        textLower.contains('review')) {
+      return 'feedback';
+    }
+    
+    // Default to query stage (shows services)
+    return 'query';
+  }
+
+  /// Handle confirmation stage: automatically create booking
+  Future<void> _handleConfirmation(_ParseResult parseResult, dynamic responseData) async {
+    try {
+      final db = LocalDb.instance;
+      
+      // Extract service name and requirements from response
+      String serviceName = parseResult.serviceName ?? 'Service';
+      String requirements = '';
+      
+      if (responseData is Map) {
+        serviceName = responseData['service_name']?.toString() ?? 
+                     responseData['serviceName']?.toString() ?? 
+                     serviceName;
+        requirements = responseData['requirements']?.toString() ?? 
+                      responseData['description']?.toString() ?? 
+                      '';
+      }
+      
+      // Create order automatically
+      await db.createOrder(
+        title: serviceName,
+        description: requirements.isNotEmpty ? requirements : 'Booked via chatbot',
+        status: 'Pending',
+      );
+    } catch (e) {
+      // Silently handle errors - booking might already exist
+    }
+  }
+
+  /// Handle feedback stage: save feedback to database
+  Future<void> _handleFeedback(String feedbackText) async {
+    try {
+      final db = LocalDb.instance;
+      await db.createFeedback(feedbackText: feedbackText);
+    } catch (e) {
+      // Silently handle errors
+    }
   }
 
   /// Extract service name from text by looking for common patterns
@@ -677,11 +762,13 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final String? serviceName;
-
+  final String? stage; // 'query', 'confirmation', or 'feedback'
+  
   ChatMessage({
     required this.text,
     required this.isUser,
     this.serviceName,
+    this.stage,
   });
 }
 
@@ -747,66 +834,74 @@ class _MessageBubble extends StatelessWidget {
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
               title: const Text('Book Service'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (serviceName.isNotEmpty) ...[
-                    Text(
-                      'Service: $serviceName',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (showCost && serviceCost != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (serviceName.isNotEmpty) ...[
+                      Text(
+                        'Service: $serviceName',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Estimated Cost:',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (showCost && serviceCost != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                           ),
-                          Text(
-                            '₹$serviceCost',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Estimated Cost:',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                            Text(
+                              '₹$serviceCost',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextField(
+                        controller: requirementsController,
+                        maxLines: 3,
+                        minLines: 3,
+                        enabled: !isBooking,
+                        decoration: const InputDecoration(
+                          hintText: 'What are your requirements?',
+                          labelText: 'Requirements',
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    if (isBooking) ...[
+                      const SizedBox(height: 16),
+                      const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ],
                   ],
-                  TextField(
-                    controller: requirementsController,
-                    maxLines: 3,
-                    enabled: !isBooking,
-                    decoration: const InputDecoration(
-                      hintText: 'What are your requirements?',
-                      labelText: 'Requirements',
-                    ),
-                  ),
-                  if (isBooking) ...[
-                    const SizedBox(height: 16),
-                    const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -888,11 +983,25 @@ class _MessageBubble extends StatelessWidget {
                               onBookingConfirmed!(serviceName, requirements);
                             }
                             
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(message),
-                                backgroundColor: Colors.green,
-                              ),
+                            // Show simple confirmation message dialog (no buttons)
+                            showDialog<void>(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (dialogCtx) {
+                                // Auto-close after 2 seconds
+                                Future.delayed(const Duration(seconds: 2), () {
+                                  if (dialogCtx.mounted) {
+                                    Navigator.of(dialogCtx).pop();
+                                  }
+                                });
+                                
+                                return AlertDialog(
+                                  content: Text(
+                                    message,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
+                              },
                             );
                           } else {
                             // Error response
@@ -974,7 +1083,11 @@ class _MessageBubble extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           Flexible(
+            flex: 1,
             child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: message.isUser
@@ -995,6 +1108,7 @@ class _MessageBubble extends StatelessWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     message.text,
@@ -1004,13 +1118,15 @@ class _MessageBubble extends StatelessWidget {
                           : Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                     ),
+                    softWrap: true,
+                    overflow: TextOverflow.visible,
                   ),
                   if (!message.isUser) ...[
-                    // Show Book Service button if service name is detected OR if message contains service-related content
-                    if (message.serviceName != null || 
+                    // Show Book Service button ONLY in query stage
+                    if (message.stage == 'query' && (message.serviceName != null || 
                         message.text.toLowerCase().contains('service') ||
                         message.text.toLowerCase().contains('provider') ||
-                        message.text.toLowerCase().contains('booking')) ...[
+                        message.text.toLowerCase().contains('booking'))) ...[
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,

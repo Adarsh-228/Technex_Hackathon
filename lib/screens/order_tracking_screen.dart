@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 import 'package:technex/services/location_store.dart';
 import 'package:technex/data/service_repository.dart';
-import 'dart:math';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 /// Screen that displays a map with route from customer to service provider
 class OrderTrackingScreen extends StatefulWidget {
@@ -38,11 +39,16 @@ final Map<String, LatLng> _nagpurAreaCoordinates = {
 };
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  GoogleMapController? _mapController;
   LatLng? _customerLocation;
   LatLng? _serviceProviderLocation;
-  List<LatLng> _routePoints = [];
+  Set<Polyline> _polylines = {};
+  Set<Marker> _markers = {};
   bool _isLoading = true;
   ServiceProvider? _serviceProvider;
+  
+  // Google Maps API Key
+  static const String _googleMapsApiKey = 'AIzaSyCOCEy6SmwapTeZ1UPibfcwtlOmqqiA74g';
 
   @override
   void initState() {
@@ -51,94 +57,315 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Future<void> _initializeLocations() async {
-    // Get customer location from LocationStore
-    final customerPos = LocationStore.instance.position;
-    if (customerPos != null) {
-      _customerLocation = LatLng(customerPos.latitude, customerPos.longitude);
-    } else {
-      // Fallback to Nagpur center if no location available
-      _customerLocation = const LatLng(21.1458, 79.0882); // Nagpur coordinates
-    }
-
-    // Find service provider from CSV data based on order title (service name)
-    final services = await ServiceRepository.instance.loadServices();
-    ServiceProvider? matchedProvider;
-    
-    // Try to find exact match by service name
-    for (final service in services) {
-      if (service.serviceName.toLowerCase() == widget.orderTitle.toLowerCase()) {
-        matchedProvider = service;
-        break;
+    try {
+      // Get customer location - use LocationStore if available, otherwise fetch fresh
+      Position? customerPos = LocationStore.instance.position;
+      
+      if (customerPos == null) {
+        // Fetch location fresh using the same method as main.dart
+        final hasPermission = await _checkLocationPermission();
+        if (hasPermission) {
+          customerPos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          // Store it for future use
+          LocationStore.instance.setPosition(customerPos);
+        }
       }
-    }
-    
-    // If no exact match, try to find by partial match
-    if (matchedProvider == null) {
+      
+      if (customerPos != null) {
+        _customerLocation = LatLng(customerPos.latitude, customerPos.longitude);
+      } else {
+        // Fallback to Nagpur center if no location available
+        _customerLocation = const LatLng(21.1458, 79.0882);
+      }
+
+      // Find service provider from CSV data based on order title (service name)
+      final services = await ServiceRepository.instance.loadServices();
+      ServiceProvider? matchedProvider;
+      
+      // Try to find exact match by service name
       for (final service in services) {
-        if (widget.orderTitle.toLowerCase().contains(service.serviceName.toLowerCase()) ||
-            service.serviceName.toLowerCase().contains(widget.orderTitle.toLowerCase())) {
+        if (service.serviceName.toLowerCase().trim() == widget.orderTitle.toLowerCase().trim()) {
           matchedProvider = service;
           break;
         }
       }
+      
+      // If no exact match, try to find by partial match
+      if (matchedProvider == null) {
+        for (final service in services) {
+          final orderTitleLower = widget.orderTitle.toLowerCase().trim();
+          final serviceNameLower = service.serviceName.toLowerCase().trim();
+          if (orderTitleLower.contains(serviceNameLower) ||
+              serviceNameLower.contains(orderTitleLower)) {
+            matchedProvider = service;
+            break;
+          }
+        }
+      }
+      
+      // If still no match, use first service provider as fallback
+      if (matchedProvider == null && services.isNotEmpty) {
+        matchedProvider = services.first;
+      }
+
+      _serviceProvider = matchedProvider;
+
+      // Get service provider location from area name using geocoding
+      if (matchedProvider != null) {
+        final areaName = matchedProvider.locationArea.trim();
+        
+        // Always try geocoding first for accurate location
+        try {
+          final locations = await geo.locationFromAddress(
+            '$areaName, Nagpur, Maharashtra, India',
+          );
+          if (locations.isNotEmpty) {
+            _serviceProviderLocation = LatLng(
+              locations.first.latitude,
+              locations.first.longitude,
+            );
+          } else {
+            // Fallback to predefined coordinates if geocoding fails
+            _serviceProviderLocation = _nagpurAreaCoordinates[areaName] ?? 
+                                     _nagpurAreaCoordinates.values.first;
+          }
+        } catch (e) {
+          // Fallback to predefined coordinates if geocoding fails
+          _serviceProviderLocation = _nagpurAreaCoordinates[areaName] ?? 
+                                   _nagpurAreaCoordinates.values.first;
+        }
+      } else {
+        // Fallback: use Nagpur center if no provider found
+        _serviceProviderLocation = const LatLng(21.1458, 79.0882);
+      }
+
+      // Ensure both locations are set before fetching route
+      if (_customerLocation != null && _serviceProviderLocation != null) {
+        // Fetch route from Google Directions API
+        await _fetchRoute();
+
+        // Create markers
+        _createMarkers();
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading locations: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
-    
-    // If still no match, use first service provider as fallback
-    if (matchedProvider == null && services.isNotEmpty) {
-      matchedProvider = services.first;
+  }
+
+  /// Check and request location permission (same as main.dart)
+  Future<bool> _checkLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
     }
 
-    _serviceProvider = matchedProvider;
+    LocationPermission permission = await Geolocator.checkPermission();
 
-    // Get service provider location from area name
-    if (matchedProvider != null) {
-      final areaName = matchedProvider.locationArea;
-      _serviceProviderLocation = _nagpurAreaCoordinates[areaName] ?? 
-                                 _nagpurAreaCoordinates.values.first;
-    } else {
-      // Fallback: generate location near customer
-      final random = Random();
-      final offsetLat = (random.nextDouble() - 0.5) * 0.1;
-      final offsetLng = (random.nextDouble() - 0.5) * 0.1;
-      _serviceProviderLocation = LatLng(
-        _customerLocation!.latitude + offsetLat,
-        _customerLocation!.longitude + offsetLng,
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Fetch route from Google Directions API
+  Future<void> _fetchRoute() async {
+    if (_customerLocation == null || _serviceProviderLocation == null) return;
+
+    try {
+      final origin = '${_customerLocation!.latitude},${_customerLocation!.longitude}';
+      final destination = '${_serviceProviderLocation!.latitude},${_serviceProviderLocation!.longitude}';
+      
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$destination&key=$_googleMapsApiKey',
       );
+
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Request timeout');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        if (data['status'] == 'OK' && data['routes'] != null && data['routes'].isNotEmpty) {
+          final route = data['routes'][0];
+          final overviewPolyline = route['overview_polyline'];
+          final points = overviewPolyline['points'];
+          
+          // Decode polyline points
+          final decodedPoints = _decodePolyline(points);
+          
+          setState(() {
+            _polylines = {
+              Polyline(
+                polylineId: const PolylineId('route'),
+                points: decodedPoints,
+                color: Theme.of(context).colorScheme.primary,
+                width: 5,
+                patterns: [],
+              ),
+            };
+          });
+        } else {
+          // If API fails, create a simple straight line
+          _createFallbackRoute();
+        }
+      } else {
+        // If API fails, create a simple straight line
+        _createFallbackRoute();
+      }
+    } catch (e) {
+      // If API fails, create a simple straight line
+      _createFallbackRoute();
+    }
+  }
+
+  /// Decode Google Maps polyline string to list of LatLng
+  List<LatLng> _decodePolyline(String encoded) {
+    final List<LatLng> points = [];
+    int index = 0;
+    int lat = 0;
+    int lng = 0;
+
+    while (index < encoded.length) {
+      int shift = 0;
+      int result = 0;
+      int byte;
+      do {
+        byte = encoded.codeUnitAt(index++) - 63;
+        result |= (byte & 0x1F) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+      final dlat = ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        byte = encoded.codeUnitAt(index++) - 63;
+        result |= (byte & 0x1F) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+      final dlng = ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
+      lng += dlng;
+
+      points.add(LatLng(lat / 1e5, lng / 1e5));
     }
 
-    // Generate route points (simple straight line with a few waypoints)
-    _routePoints = _generateRoutePoints(_customerLocation!, _serviceProviderLocation!);
+    return points;
+  }
 
+  /// Create fallback route (straight line) if Directions API fails
+  void _createFallbackRoute() {
+    if (_customerLocation == null || _serviceProviderLocation == null) return;
+    
+    final points = <LatLng>[
+      _customerLocation!,
+      _serviceProviderLocation!,
+    ];
+    
     setState(() {
-      _isLoading = false;
+      _polylines = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: points,
+          color: Theme.of(context).colorScheme.primary,
+          width: 5,
+          patterns: [],
+        ),
+      };
     });
   }
 
-  /// Generate route points between two locations
-  List<LatLng> _generateRoutePoints(LatLng start, LatLng end) {
-    final points = <LatLng>[start];
+  /// Create markers for customer and service provider locations
+  void _createMarkers() {
+    if (_customerLocation == null || _serviceProviderLocation == null) return;
+
+    setState(() {
+      _markers = {
+        // Customer location marker
+        Marker(
+          markerId: const MarkerId('customer'),
+          position: _customerLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: const InfoWindow(
+            title: 'Your Location',
+            snippet: 'Customer location',
+          ),
+        ),
+        // Service provider location marker
+        Marker(
+          markerId: const MarkerId('service_provider'),
+          position: _serviceProviderLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: InfoWindow(
+            title: 'Service Location',
+            snippet: _serviceProvider?.locationArea ?? 'Service provider location',
+          ),
+        ),
+      };
+    });
+  }
+
+  /// Calculate bounds to fit both markers
+  LatLngBounds? _getBounds() {
+    if (_customerLocation == null || _serviceProviderLocation == null) return null;
     
-    // Add intermediate points for a more realistic route
-    final numPoints = 5;
-    for (int i = 1; i < numPoints; i++) {
-      final ratio = i / numPoints;
-      // Add slight curve to the route
-      final lat = start.latitude + (end.latitude - start.latitude) * ratio;
-      final lng = start.longitude + (end.longitude - start.longitude) * ratio;
-      // Add small random offset for realism
-      final random = Random();
-      final offsetLat = (random.nextDouble() - 0.5) * 0.01;
-      final offsetLng = (random.nextDouble() - 0.5) * 0.01;
-      points.add(LatLng(lat + offsetLat, lng + offsetLng));
-    }
-    
-    points.add(end);
-    return points;
+    return LatLngBounds(
+      southwest: LatLng(
+        _customerLocation!.latitude < _serviceProviderLocation!.latitude
+            ? _customerLocation!.latitude
+            : _serviceProviderLocation!.latitude,
+        _customerLocation!.longitude < _serviceProviderLocation!.longitude
+            ? _customerLocation!.longitude
+            : _serviceProviderLocation!.longitude,
+      ),
+      northeast: LatLng(
+        _customerLocation!.latitude > _serviceProviderLocation!.latitude
+            ? _customerLocation!.latitude
+            : _serviceProviderLocation!.latitude,
+        _customerLocation!.longitude > _serviceProviderLocation!.longitude
+            ? _customerLocation!.longitude
+            : _serviceProviderLocation!.longitude,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || _customerLocation == null || _serviceProviderLocation == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Tracking your Order'),
@@ -152,16 +379,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     // Calculate center point for map view
     final centerLat = (_customerLocation!.latitude + _serviceProviderLocation!.latitude) / 2;
     final centerLng = (_customerLocation!.longitude + _serviceProviderLocation!.longitude) / 2;
-    final center = LatLng(centerLat, centerLng);
-
-    // Calculate zoom level to fit both points
-    final distance = Geolocator.distanceBetween(
-      _customerLocation!.latitude,
-      _customerLocation!.longitude,
-      _serviceProviderLocation!.latitude,
-      _serviceProviderLocation!.longitude,
-    );
-    final zoom = distance > 10000 ? 12.0 : (distance > 5000 ? 13.0 : 14.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -172,71 +389,26 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           // Map - takes more than half the screen
           Expanded(
             flex: 3,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: center,
-                initialZoom: zoom,
-                minZoom: 10,
-                maxZoom: 18,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(centerLat, centerLng),
+                zoom: 13.0,
               ),
-              children: [
-                // OpenStreetMap tiles
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.technex',
-                ),
-                // Route polyline
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: _routePoints,
-                      strokeWidth: 4.0,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ],
-                ),
-                // Markers
-                MarkerLayer(
-                  markers: [
-                    // Customer location marker
-                    Marker(
-                      point: _customerLocation!,
-                      width: 50,
-                      height: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                        ),
-                        child: const Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                    // Service provider location marker
-                    Marker(
-                      point: _serviceProviderLocation!,
-                      width: 50,
-                      height: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                        ),
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              onMapCreated: (GoogleMapController controller) {
+                _mapController = controller;
+                // Fit bounds to show both markers
+                final bounds = _getBounds();
+                if (bounds != null) {
+                  controller.animateCamera(
+                    CameraUpdate.newLatLngBounds(bounds, 100.0),
+                  );
+                }
+              },
+              markers: _markers,
+              polylines: _polylines,
+              mapType: MapType.normal,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: true,
             ),
           ),
           // Service Provider Details Card
@@ -402,4 +574,3 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 }
-

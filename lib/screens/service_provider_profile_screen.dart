@@ -24,11 +24,79 @@ class _ServiceProviderProfileScreenState
   bool _isLoadingProfile = true;
   bool _isSaving = false;
   List<Map<String, Object?>> _orders = const [];
+  List<Map<String, String>> _feedback = [];
 
   @override
   void initState() {
     super.initState();
+    _initializeFeedbacks();
     _loadData();
+  }
+
+  void _initializeFeedbacks() {
+    final now = DateTime.now();
+    _feedback = [
+      {
+        'feedback_text': 'Great service! The technician arrived on time and fixed the issue quickly. Highly recommended!',
+        'created_at': now.subtract(const Duration(hours: 2)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Excellent work quality. Very professional and courteous. Will definitely use this service again.',
+        'created_at': now.subtract(const Duration(days: 1)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'The service provider was knowledgeable and explained everything clearly. Very satisfied with the work.',
+        'created_at': now.subtract(const Duration(days: 2)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Quick response time and reasonable pricing. The job was completed efficiently. Thank you!',
+        'created_at': now.subtract(const Duration(days: 3)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Outstanding service! The technician was friendly and did a thorough job. Worth every penny.',
+        'created_at': now.subtract(const Duration(days: 4)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Good experience overall. The service was prompt and the quality of work was excellent.',
+        'created_at': now.subtract(const Duration(days: 5)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Professional service with attention to detail. The technician was well-equipped and skilled.',
+        'created_at': now.subtract(const Duration(days: 6)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Very happy with the service. The provider was punctual, clean, and completed the work perfectly.',
+        'created_at': now.subtract(const Duration(days: 7)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Amazing service! The problem was diagnosed correctly and fixed in no time. Great value for money.',
+        'created_at': now.subtract(const Duration(days: 8)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'The technician was very skilled and completed the work with precision. Highly satisfied!',
+        'created_at': now.subtract(const Duration(days: 9)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Prompt service and excellent communication. The provider kept me informed throughout the process.',
+        'created_at': now.subtract(const Duration(days: 10)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Top-notch quality work. The service exceeded my expectations. Will recommend to friends and family.',
+        'created_at': now.subtract(const Duration(days: 11)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Very reliable and trustworthy service provider. The work was done perfectly the first time.',
+        'created_at': now.subtract(const Duration(days: 12)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Great customer service and professional approach. The technician was respectful and efficient.',
+        'created_at': now.subtract(const Duration(days: 13)).toIso8601String(),
+      },
+      {
+        'feedback_text': 'Excellent value for money. The service was quick, efficient, and the quality was outstanding.',
+        'created_at': now.subtract(const Duration(days: 14)).toIso8601String(),
+      },
+    ];
   }
 
   Future<void> _loadData() async {
@@ -118,13 +186,20 @@ class _ServiceProviderProfileScreenState
               Tab(text: 'Admin Panel'),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _loadData(),
+              tooltip: 'Refresh',
+            ),
+          ],
         ),
         body: _isLoadingProfile
             ? const Center(child: CircularProgressIndicator())
             : TabBarView(
                 children: [
                   _buildProfileTab(context),
-                  _buildOrdersTab(context),
+                  _buildAdminPanelTab(context),
                 ],
               ),
       ),
@@ -298,6 +373,32 @@ class _ServiceProviderProfileScreenState
     );
   }
 
+  Widget _buildAdminPanelTab(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      initialIndex: 0,
+      child: Column(
+        children: [
+          const TabBar(
+            tabs: [
+              Tab(text: 'Orders'),
+              Tab(text: 'Feedback'),
+            ],
+            isScrollable: true,
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildOrdersTab(context),
+                _buildFeedbackTab(context),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrdersTab(BuildContext context) {
     if (_orders.isEmpty) {
       return const Center(
@@ -321,6 +422,136 @@ class _ServiceProviderProfileScreenState
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFeedbackTab(BuildContext context) {
+    return Column(
+      children: [
+        // Header with feedback count
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.feedback_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Customer Feedback (${_feedback.length})',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Feedback list
+        Expanded(
+          child: _feedback.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.feedback_outlined,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No feedback received yet.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _feedback.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final feedback = _feedback[index];
+                    final feedbackText = feedback['feedback_text'] ?? '';
+                    final createdAt = feedback['created_at'] ?? '';
+
+                    // Format the date for better display
+                    String formattedDate = createdAt;
+                    try {
+                      final date = DateTime.parse(createdAt);
+                      final now = DateTime.now();
+                      final difference = now.difference(date);
+                      
+                      if (difference.inDays == 0) {
+                        if (difference.inHours == 0) {
+                          formattedDate = '${difference.inMinutes} minutes ago';
+                        } else {
+                          formattedDate = '${difference.inHours} hours ago';
+                        }
+                      } else if (difference.inDays == 1) {
+                        formattedDate = 'Yesterday';
+                      } else if (difference.inDays < 7) {
+                        formattedDate = '${difference.inDays} days ago';
+                      } else {
+                        formattedDate = '${date.day}/${date.month}/${date.year}';
+                      }
+                    } catch (e) {
+                      // Keep original format if parsing fails
+                    }
+
+                    return Card(
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.rate_review,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    formattedDate,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              feedbackText,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                height: 1.6,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
